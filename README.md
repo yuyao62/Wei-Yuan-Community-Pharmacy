@@ -1,64 +1,67 @@
-# 維元社區藥局工作站 v1.0
+# 維元社區藥局 — 手機拍照專用收件系統（待設定版）
 
-這是一套使用繁體中文、無外部程式依賴的藥局工作輔助網頁。店內資料存於目前瀏覽器，顧客促銷頁由工作站另外匯出。
+這套檔案是為目前的 GitHub Pages 網站 `yuyao62/Wei-Yuan-Community-Pharmacy` 準備的**獨立附加功能**，不需覆蓋既有 `index.html`。目前尚未連接實際 Supabase 專案，因此**不能收真實處方，不能宣稱正式啟用**。
 
-## 套件中的檔案
+## 完成後的使用流程
 
-- `店內工作站.html`：完整工作站；下載後以 Chrome 或 Edge 開啟。首次是示範商品，其餘模組為空白。
-- `顧客公開版/index.html`：可直接放上 GitHub Pages 的獨立示範促銷頁。
-- `README.md`：本說明。
-- `功能與驗證.md`：完整功能、已驗證流程及使用限制。
+1. 客人手機打開 `upload.html`，開啟相機／選圖（最多 3 張）、輸入聯絡資料並完成 Turnstile 驗證。
+2. 照片轉為 JPEG 後，透過 HTTPS 傳到 Supabase Edge Function；後端再次驗證 CAPTCHA，寫入**不公開**的 Storage bucket 和收件表。
+3. 藥局電腦開啟 `inbox.html`，以事先授權的員工帳號登入，查看、標記已處理及刪除。
+4. GitHub 只放網頁程式碼，不放處方照片、服務金鑰、管理員密碼。
 
-店內工作站已內含橫幅，匯出的顧客頁也會包含橫幅及商品照片，不需要額外圖檔。
+## 如何啟用：需藥局管理員完成
 
-## 首次設定
+1. 建立**獨立** Supabase 專案：<https://supabase.com>。避免重用存有其他個資的專案。
+2. 在 Supabase SQL Editor 貼上 `schema.sql` 執行，確認 `pharmacy-prescriptions` 是**Private**，且 RLS 已開啟。
+3. Supabase Dashboard → Authentication → Users 建立藥局員工帳號，停用公開註冊；建議啟用 MFA 並建立人員離職撤權流程。複製其 UUID，執行：
+   ```sql
+   insert into public.pharmacy_admins(user_id) values ('這裡換成員工-user-uuid');
+   ```
+4. Cloudflare Dashboard 建立 Turnstile widget：<https://dash.cloudflare.com>，允許主機名稱 `yuyao62.github.io`，取得 **site key**（公開）及 **secret key**（不可公開）。
+5. 使用 Supabase CLI 登入並連結專案，在含 `supabase/` 的此資料夾中部署：
+   ```sh
+   supabase login
+   supabase link --project-ref <你的-project-ref>
+   supabase secrets set TURNSTILE_SECRET='<你的-Turnstile-secret>' ALLOWED_ORIGIN='https://yuyao62.github.io' ALLOWED_HOSTNAME='yuyao62.github.io'
+   supabase functions deploy submit-prescription
+   ```
+   `supabase/config.toml` 已將 `submit-prescription` 設為 `verify_jwt=false`，以支援顧客免登入；**不可關閉 Edge Function 的 CAPTCHA 驗證**。不要把 Secret 貼進 GitHub 或任何 HTML。
+6. 在 `config.js` 只填三個**公開**設定：Supabase Project URL、Supabase Publishable/Anon key、Turnstile **site key**。**絕對不可填 `service_role`、Supabase secret key 或 Turnstile secret**。
+7. 將 `upload.html`、`upload.js`、`inbox.html`、`inbox.js`、`privacy.html`、`styles.css`、`config.js` 放入現有 GitHub Pages 網站根目錄。先開上傳網址檢查正常，再在既有首頁加按鈕。原本的 `index.html` 不用刪除或覆蓋。
+8. 用**虛構資料與非真實處方的測試照片**完成至少以下測試，確認成功後再考慮正式啟用：
+   - 不登入能上傳測試照片，顯示收件編號。
+   - 藥局授權帳號登入可看見該筆及照片；另一台手機上傳也能收到。
+   - 未授權帳號不能讀清單／圖片；匿名不能直接列出、讀取 Storage 檔案。
+   - 上傳三張、超大照片、無效 CAPTCHA、異常網路狀態均給出適當回應。
+   - 測試標記處理、刪除照片與紀錄，並確認未留下公開連結。
 
-1. 開啟「藥局設定與備份」，填入實際電話、地址、LINE 完整 https 網址與營業時間。
-2. 由藥局設定即期提醒天數，以及冷藏設備適用的溫度上下限。不確定時先留空。
-3. 按「清除示範，開始使用」，再建立實際商品；示範商品與價格不代表實際販售。
-4. 各模組都可新增、編輯、搜尋與刪除，並支援清單列印和 CSV 匯出。
-5. 使用後下載完整 JSON 備份，保存在藥局允許的安全位置。
+## 建議加入既有 index.html 的入口
 
-## 店內日常作業
+把以下連結放在慢箋寄單區塊，**待正式驗收後**再對顧客開放：
 
-- 慢箋：每次領藥各登記一筆，由藥師輸入確認日期。按「下次」複製資料及領藥次序，下一次日期需再確認。標記待備藥、已備藥、已通知、已領藥或取消。
-- 客訂／欠藥：登記品項、數量、訂金（客訂）、到貨日期及進度；通知文字可複製後自行傳送。
-- 庫存：以品項及批號分筆輸入，設定最低庫存、效期、供應商、退貨期限及狀態。數量依進貨及盤點手動調整。
-- 比價：同名稱、同規格才互相比較；每單位成本＝每包裝報價÷包裝單位數。報價中可用數量 0，不視為已下單。
-- 溫度：輸入量測時間、溫度、紀錄人及異常處理。未設定上下限時不會判定正常／異常。
-- 交班待辦：輸入期限、負責人、優先順序、狀態；今日及逾期待辦顯示在首頁。
-- 收支：分別記錄收入、支出及支付方式。「核對指定日實收」可輸入期初與實際金額，計算差額。
+```html
+<a href="upload.html">📷 手機拍照傳送慢箋</a>
+```
 
-## 促銷作業
+藥局電腦專用：`https://yuyao62.github.io/Wei-Yuan-Community-Pharmacy/inbox.html`（此為預計部署路徑，尚未上線驗證）。
 
-1. 新增商品、分類、原價、優惠方式、活動日期、庫存與限購數量；可上傳 JPG／PNG／WebP 照片（每張上限 5 MB，會縮圖）。
-2. 支援特價、第二件優惠、同商品組合價、同商品滿額折抵。第二件 50% 代表第二件半價，不是整筆打五折。
-3. 登記銷售時自動預算金額，可依實際收款修改；確認後扣促銷商品庫存。
-4. 撤銷銷售會回補庫存，原交易保留「已撤銷」狀態，避免重複計入成效。
-5. 勾選商品後，可列印 A4 價格卡或一品一頁促銷海報。列印效果與印表機邊界設定有關，可先存成 PDF 檢查。
-6. LINE 文案只產生文字，不會自動發送訊息。
-7. 顧客頁可搜尋、分類瀏覽、查看優惠及活動狀態；日期過期的活動自動隱藏。
+## 重要安全／維護說明
 
-## GitHub Pages
+- 本範本做了私人儲存、RLS、後端人機驗證、管理員登入與原始圖片重編碼；**不等於已達成正式醫療個資系統的法規或資安認證**。
+- 需由藥局確認個資法及相關醫事法規、蒐集告知、資料存放地區、保留期限、備份、存取紀錄、事故應變、供應商合約、員工權限與 MFA。
+- 資料目前**不會自動到期刪除**；請設訂保存期限並規劃例行清理，還要檢查備份中的個資。Cloudflare Turnstile 防止一部分機器濫用，但仍應為正式網站額外部署後端速率限制、流量與費用監控。
+- 裝置網路中斷時，客人可看到失敗訊息；如果回應遺失，即使後端已完成收件也可能顯示失敗，因此應先跟藥局確認是否已有相同處方再重送。
+- 處方影像若內含患者識別或健康資訊，不能以普通 GitHub 儲存庫、公開 Bucket、公開 Google Drive 等方式保存。
+- `inbox.html` 的網址不是密碼保護，但收件內容是透過 Supabase 帳號及資料庫／儲存權限保護；不要只依賴把網址藏起來。
+- 不建議把 `inbox.html` 連結公開放進首頁導航；藥局人員可直接收藏網址。
 
-上傳檔案選 `顧客公開版/index.html`。正式內容請先在店內工作站輸入，再按「匯出顧客促銷頁」取得最新的 `index.html`。
+## 內容檔案
 
-1. 在 GitHub 建立新儲存庫，例如 `pharmacy-promotions`。
-2. 透過 Add file → Upload files，把匯出的 `index.html` 上傳到儲存庫根目錄並提交。
-3. 在 Settings → Pages → Build and deployment，選 Deploy from a branch、main、/ (root) 後儲存。
-4. 等候 GitHub 顯示網站連結。
-5. 商品異動後再次匯出並覆蓋同名 `index.html`。每次匯出是資料快照，不會與工作站即時同步。
-
-GitHub 官方說明：https://docs.github.com/en/pages/quickstart
-
-**不要上傳完整 JSON 備份或病人、聯絡名單與收支 CSV。** 公開版只含藥局對外資訊及上架商品。店內版沒有員工帳號與登入權限，不適合作為多人共用的病人資料系統。
-
-## 資料保存
-
-資料依瀏覽器及網站來源分開保存，不會跨電腦、瀏覽器或網址同步。清除瀏覽資料、無痕模式、換裝置或搬移網址前，請先匯出 JSON。還原會覆蓋目前全部紀錄，操作前請先備份。
-
-本機容量有限；儲存失敗會顯示提示，應立即匯出備份並減少照片數量。備份若讀取失敗，工作站會保留原始儲存內容，提供下載原資料與重建選項。
-
-本工具為人工工作輔助；不串接健保、POS、支付或官方 LINE，不自動寄信／傳訊／訂貨／進貨入庫。慢箋日期由藥師確認，未內建法規資格判定。一般庫存與促銷庫存分別管理，促銷銷售不自動寫進收支帳，避免與收銀日結重複。
-
-橫幅依使用者提供的 Google 街景截圖整理為示意圖，保留來源標示；文字及建物細節以現場為準。更換為藥局自行拍攝的原始照片可提高真實度。
+- `upload.html` / `upload.js`: 手機拍照及上傳
+- `inbox.html` / `inbox.js`: 藥局登入收件
+- `privacy.html`: 上線前應確認的個資告知草案
+- `styles.css`: 手機／電腦自適應樣式
+- `config.js`: 公開配置（預設無法送出）
+- `schema.sql`: 私人照片儲存及 RLS 權限設定
+- `supabase/config.toml`: Edge Function JWT 行為
+- `supabase/functions/submit-prescription/index.ts`: CAPTCHA 驗證與安全上傳 API

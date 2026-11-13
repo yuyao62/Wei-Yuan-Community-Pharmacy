@@ -1,0 +1,8 @@
+<!doctype html>
+<html lang="zh-Hant"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="referrer" content="no-referrer"><title>藥局專用收件匣｜維元社區藥局</title><link rel="stylesheet" href="styles.css"><script src="config.js"></script></head>
+<body><header><div class="wrap"><h1>維元社區藥局｜專用收件匣</h1><a href="./">返回首頁</a></div></header>
+<main><section class="panel" id="loginPanel"><h2>藥局人員登入</h2><p class="muted">僅限已授權藥局人員。請勿在共用電腦儲存密碼；關閉分頁後需重新登入。</p>
+<form id="loginForm"><label for="email">登入電子郵件</label><input id="email" type="email" autocomplete="username" required><label for="password">密碼</label><input id="password" type="password" autocomplete="current-password" required><p><button type="submit" id="loginBtn">登入收件匣</button></p></form></section>
+<section class="panel hidden" id="inboxPanel"><div class="row"><h2>處方收件紀錄</h2><button class="secondary small" id="logoutBtn">登出</button></div><div class="row"><p class="muted" id="count">讀取中…</p><button class="secondary small" id="refreshBtn">重新整理</button></div><div class="notice">處方與健康資訊僅限業務必要人員查看。查看後請關閉圖片，並遵守藥局保存與刪除規定。</div><div id="list" class="list"></div></section>
+<p id="status" role="status" aria-live="polite"></p>
+</main><footer>本收件匣不會在 GitHub 儲存處方照片。</footer><script type="module" src="inbox.js"></script></body></html>

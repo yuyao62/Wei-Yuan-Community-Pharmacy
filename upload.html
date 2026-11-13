@@ -1,0 +1,13 @@
+<!doctype html>
+<html lang="zh-Hant"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="referrer" content="no-referrer"><title>慢箋處方拍照傳送｜維元社區藥局</title><link rel="stylesheet" href="styles.css"><script src="config.js"></script><script src="https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit" async defer></script></head>
+<body><header><div class="wrap"><h1>維元社區藥局｜處方照片傳送</h1><a href="./">返回首頁</a></div></header>
+<main><section class="panel"><h2>手機拍照，直接傳給藥局</h2><p class="muted">可用手機相機拍攝，或選擇已拍好的照片，最多三張。請確認處方內容清楚、四角完整。</p><div class="notice">本功能供藥局事先核對慢箋及聯繫使用；<strong>線上送出不代表已完成領藥、確認藥品或預約成功</strong>，仍以藥局聯繫及實際處理為準。</div>
+<form id="sendForm">
+<label for="customerName">聯絡姓名（必填）</label><input id="customerName" name="customerName" type="text" autocomplete="name" minlength="2" maxlength="50" required placeholder="請輸入聯絡姓名">
+<label for="phone">聯絡手機（必填）</label><input id="phone" name="phone" type="tel" autocomplete="tel" inputmode="tel" minlength="8" maxlength="25" required placeholder="例：09xxxxxxxx">
+<label for="photos">慢箋／處方照片（必填，最多三張）</label><input id="photos" type="file" name="photos" accept="image/*" capture="environment" required><p class="muted">手機上可直接啟動相機。若要傳多張，請逐張按下方「增加照片」；不接受 PDF。</p>
+<div id="photoRows"></div><button id="addPhoto" type="button" class="secondary small">＋ 增加照片</button><div id="preview" aria-label="照片預覽"></div>
+<label for="memo">其他備註（選填）</label><textarea name="memo" id="memo" maxlength="300" rows="3" placeholder="例：方便聯絡的時段（請勿填入無關的敏感資料）"></textarea>
+<label class="check"><input id="agree" type="checkbox" required><span>我已閱讀<a href="privacy.html" target="_blank" rel="noopener noreferrer">個資與處方使用說明</a>，同意藥局為聯絡及慢箋處理目的使用我主動提供的資料。</span></label>
+<div id="captcha" class="turnstile-wrap"></div><button id="submitBtn" type="submit" disabled>傳送處方照片</button><p id="status" role="status" aria-live="polite"></p>
+</form></section></main><footer>處方影像包含個人醫療資訊，請勿使用公共電腦上傳。</footer><script type="module" src="upload.js"></script></body></html>

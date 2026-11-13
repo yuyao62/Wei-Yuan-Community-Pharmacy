@@ -1,0 +1,2 @@
+[functions.submit-prescription]
+verify_jwt = false # 顧客免登入；務必啟用 Edge Function 內的 Turnstile 後端驗證
