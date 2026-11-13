@@ -1,0 +1,146 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="referrer" content="strict-origin-when-cross-origin">
+<title>維元社區藥局｜線上處方照片傳送（壓縮修正版）</title>
+<style>
+:root{font-family:system-ui,-apple-system,"Noto Sans TC",sans-serif;color:#203f36;background:#f2f7f4}*{box-sizing:border-box}body{margin:0}header{background:#214e42;color:#fff;padding:20px 16px}header>div,main{max-width:720px;margin:auto}h1{font-size:1.45rem;margin:0}header p{margin:3px 0 0}main{padding:22px 15px 60px}.card{background:white;padding:26px;border:1px solid #d7e6df;border-radius:17px;box-shadow:0 8px 30px #214e420a}label{display:block;font-weight:650;margin:18px 0 7px}input,textarea{font:inherit;width:100%;border:1px solid #accbbd;border-radius:9px;padding:12px;background:#fff}input[type=file]{padding:10px}textarea{min-height:92px}.small{font-size:.88rem;color:#546c64;line-height:1.8}.notice{background:#edf4ef;padding:16px;border-radius:10px;line-height:1.85;margin-top:20px}.warn{background:#fff3e6;padding:14px;border-radius:10px;color:#7b4b1e;line-height:1.8}.consent{display:flex;align-items:flex-start;gap:10px;margin:20px 0}.consent input{width:20px;height:20px;flex:none;margin-top:2px}button{background:#126c5c;color:white;border:0;border-radius:9px;padding:15px 18px;font:inherit;font-weight:750;cursor:pointer;width:100%;margin-top:16px}button:disabled{opacity:.55;cursor:wait}#message{margin-top:14px;white-space:pre-wrap;line-height:1.7}#message.error{color:#ab3929}footer{text-align:center;padding:28px 14px;color:#668077}
+</style>
+<script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
+</head>
+<body>
+<header><div><h1>維元社區藥局</h1><p>線上處方照片傳送</p></div></header>
+<main><div class="card">
+<div class="warn"><strong>請先以測試資料確認系統。</strong> 此頁尚未完成正式上線驗收，暫勿提交真實處方或病患資料。</div>
+<p>流程：拍攝處方 → 填寫聯絡資料 → 通過驗證 → 送出 → 取得收件編號。傳送不代表藥師已審核處方或完成配藥。</p>
+<form id="receiptForm" method="POST" action="https://script.google.com/macros/s/AKfycbziAsOEyBIibK5dwFAU3bmQbdrb75415nehAuwzy1QZE02LyT6bPbtkt2k322TNlWQo/exec" accept-charset="UTF-8" enctype="application/x-www-form-urlencoded">
+<label for="name">姓名（必填）</label><input id="name" autocomplete="name" maxlength="40" required>
+<label for="phone">聯絡電話（必填）</label><input id="phone" autocomplete="tel" inputmode="tel" required>
+<label for="memo">備註（選填）</label><textarea id="memo" maxlength="300" placeholder="例如方便聯絡時段"></textarea>
+<label for="images">處方照片（1～3 張，必填）</label><input id="images" type="file" accept="image/jpeg,image/png,image/heic,image/heif,image/*" multiple required>
+<p class="small">符合大小的 JPEG 直接使用，其餘照片會在本機縮小成 JPEG；每張不超過 950 KB，最多 3 張。若 iPhone 的 HEIC 無法解碼，請改用 JPEG 或 PNG。請確認處方文字清楚。照片會傳送至藥局的私人 Google Drive。</p>
+<div class="notice"><strong>個人資料蒐集告知</strong><p>蒐集者：維元社區藥局。目的：辨識處方、聯絡及安排領藥。資料包含姓名、電話、備註及處方照片，僅授權藥局人員處理，儲存於私人 Google Drive 與 Google 試算表。<strong>正式啟用前，藥局仍須補足資料保存期間、刪除流程、當事人權利及聯絡窗口。</strong></p></div>
+<label class="consent"><input type="checkbox" id="consent" required><span>我已閱讀個資告知並同意為聯絡及領藥安排目的提交資料。</span></label>
+<div class="cf-turnstile" data-sitekey="0x4AAAAAAF_FielcPL4kOJrM" data-callback="onVerified" data-expired-callback="onExpired" data-error-callback="onTurnstileError"></div>
+<input type="hidden" name="payload" id="payload">
+<p class="small">按送出後會離開此頁，前往 Google Apps Script 的收件結果頁；請保留收件編號。</p>
+<button type="submit" id="send">傳送處方至維元藥局</button>
+<p id="message" role="status" aria-live="polite"></p>
+</form>
+</div></main>
+<footer>維元社區藥局｜新豐街門市｜02-2460-1388</footer>
+<script>
+'use strict';
+let verifiedToken = '';
+window.onVerified = token => { verifiedToken = token; setMessage('安全驗證已完成。'); };
+window.onExpired = () => { verifiedToken = ''; setMessage('驗證已過期，請重新驗證。', true); };
+window.onTurnstileError = code => { verifiedToken = ''; setMessage('安全驗證無法完成，Cloudflare 錯誤代碼：'+String(code || '未知')+'。請勿上傳真實處方。',true); };
+function setMessage(msg,error=false){const el=document.getElementById('message');el.textContent=msg;el.className=error?'error':'';}
+// 避免 iPhone HEIC 解碼或 Canvas 編碼永久停留在「壓縮中」
+function waitFor(ms, message) {
+  return new Promise((_, reject) => setTimeout(() => reject(new Error(message)), ms));
+}
+function withTimeout(task, ms, message) {
+  return Promise.race([task, waitFor(ms, message)]);
+}
+function readAsDataURL(blob) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result || ''));
+    reader.onerror = () => reject(new Error('無法讀取壓縮後的照片。'));
+    reader.onabort = () => reject(new Error('照片讀取已取消。'));
+    reader.readAsDataURL(blob);
+  });
+}
+function loadImage(file) {
+  return new Promise((resolve, reject) => {
+    const objectUrl = URL.createObjectURL(file);
+    const image = new Image();
+    let settled = false;
+    const timer = setTimeout(() => finish(new Error('照片解碼逾時，請改選 JPEG 或 PNG 照片。')), 18000);
+    function finish(error) {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      image.onload = null;
+      image.onerror = null;
+      if (error) { URL.revokeObjectURL(objectUrl); reject(error); }
+      else resolve({image, objectUrl});
+    }
+    image.onload = () => finish(null);
+    image.onerror = () => finish(new Error('無法解碼這張照片，請改用 JPEG 或 PNG。'));
+    image.src = objectUrl;
+  });
+}
+function canvasBlob(canvas, quality) {
+  return withTimeout(new Promise((resolve, reject) => {
+    try {
+      canvas.toBlob(blob => blob ? resolve(blob) : reject(new Error('照片轉換失敗。')), 'image/jpeg', quality);
+    } catch (error) { reject(error); }
+  }), 12000, '照片轉成 JPEG 逾時，請換一張照片重試。');
+}
+async function toJpeg(file, index, total) {
+  if (!file || !file.size) throw new Error('第 '+index+' 張照片為空白檔案。');
+  if (file.size > 30 * 1024 * 1024) throw new Error('第 '+index+' 張原始照片超過 30 MB，請先縮小。');
+  // 原本就是符合大小限制的 JPEG，直接讀取，不需要再解碼／重壓縮。
+  const isJpeg = /image\/jpeg/i.test(file.type) || /\.jpe?g$/i.test(file.name);
+  if (isJpeg && file.size <= 950000) {
+    setMessage('第 '+index+'/'+total+' 張：原始 JPEG 符合大小，直接處理……');
+    const data = await withTimeout(readAsDataURL(file), 18000, '照片讀取逾時。');
+    if (!data.startsWith('data:image/jpeg;base64,')) throw new Error('JPEG 照片格式不正確。');
+    return {mime:'image/jpeg',base64:data.slice(data.indexOf(',')+1)};
+  }
+  setMessage('第 '+index+'/'+total+' 張：正在讀取及縮小照片……');
+  const {image, objectUrl} = await loadImage(file);
+  try {
+    const originalW = image.naturalWidth || image.width;
+    const originalH = image.naturalHeight || image.height;
+    if (!originalW || !originalH) throw new Error('照片尺寸不正確。');
+    // 比原版 1700px 更適合行動裝置，降低記憶體與 JPEG 編碼時間。
+    for (const maxSide of [1400, 1100, 850]) {
+      const ratio = Math.min(1, maxSide / Math.max(originalW, originalH));
+      const width = Math.max(1, Math.round(originalW * ratio));
+      const height = Math.max(1, Math.round(originalH * ratio));
+      const canvas = document.createElement('canvas');
+      canvas.width = width; canvas.height = height;
+      const ctx = canvas.getContext('2d', {alpha:false});
+      if (!ctx) throw new Error('手機無法啟動照片壓縮功能。');
+      ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, width, height);
+      ctx.drawImage(image, 0, 0, width, height);
+      for (const quality of [.76, .58, .42]) {
+        setMessage('第 '+index+'/'+total+' 張：壓縮中（'+width+'×'+height+'）……');
+        const blob = await canvasBlob(canvas, quality);
+        if (blob.size <= 950000) {
+          const data = await withTimeout(readAsDataURL(blob), 18000, '轉檔讀取逾時。');
+          if (!data.startsWith('data:image/jpeg;base64,')) throw new Error('JPEG 編碼失敗。');
+          return {mime:'image/jpeg',base64:data.slice(data.indexOf(',')+1)};
+        }
+      }
+      canvas.width = 0; canvas.height = 0;
+    }
+    throw new Error('第 '+index+' 張照片壓縮後仍太大，請先裁切照片。');
+  } finally {
+    URL.revokeObjectURL(objectUrl);
+  }
+}
+document.getElementById('receiptForm').addEventListener('submit', async function(ev){
+  ev.preventDefault();
+  const button=document.getElementById('send');if(button.disabled)return;
+  if(!this.reportValidity())return;
+  if(!verifiedToken){setMessage('請先完成 Cloudflare 安全驗證。',true);return;}
+  const files=[...document.getElementById('images').files];
+  if(files.length<1||files.length>3){setMessage('請選擇 1～3 張照片。',true);return;}
+  button.disabled=true;setMessage('正在壓縮照片，完成後將前往收件結果頁……');
+  try{
+    const images=[];for(let i=0;i<files.length;i++){images.push(await toJpeg(files[i],i+1,files.length));} setMessage('照片已處理完成，正在開啟收件結果頁……');
+    const data={name:document.getElementById('name').value,phone:document.getElementById('phone').value,memo:document.getElementById('memo').value,consent:document.getElementById('consent').checked?'accepted':'',images,turnstileToken:verifiedToken};
+    document.getElementById('payload').value=JSON.stringify(data);
+    // 使用原生表單提交到 Apps Script；瀏覽器跳轉期間不要重複送出。
+    HTMLFormElement.prototype.submit.call(this);
+  }catch(err){setMessage((err && err.message) || '照片處理失敗。請改選 JPEG 或 PNG，再試一次。',true);button.disabled=false;}
+});
+</script>
+</body>
+</html>
