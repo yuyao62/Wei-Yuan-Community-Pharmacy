@@ -1,13 +1,75 @@
 <!doctype html>
-<html lang="zh-Hant"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="referrer" content="no-referrer"><title>慢箋處方拍照傳送｜維元社區藥局</title><link rel="stylesheet" href="styles.css"><script src="config.js"></script><script src="https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit" async defer></script></head>
-<body><header><div class="wrap"><h1>維元社區藥局｜處方照片傳送</h1><a href="./">返回首頁</a></div></header>
-<main><section class="panel"><h2>手機拍照，直接傳給藥局</h2><p class="muted">可用手機相機拍攝，或選擇已拍好的照片，最多三張。請確認處方內容清楚、四角完整。</p><div class="notice">本功能供藥局事先核對慢箋及聯繫使用；<strong>線上送出不代表已完成領藥、確認藥品或預約成功</strong>，仍以藥局聯繫及實際處理為準。</div>
-<form id="sendForm">
-<label for="customerName">聯絡姓名（必填）</label><input id="customerName" name="customerName" type="text" autocomplete="name" minlength="2" maxlength="50" required placeholder="請輸入聯絡姓名">
-<label for="phone">聯絡手機（必填）</label><input id="phone" name="phone" type="tel" autocomplete="tel" inputmode="tel" minlength="8" maxlength="25" required placeholder="例：09xxxxxxxx">
-<label for="photos">慢箋／處方照片（必填，最多三張）</label><input id="photos" type="file" name="photos" accept="image/*" capture="environment" required><p class="muted">手機上可直接啟動相機。若要傳多張，請逐張按下方「增加照片」；不接受 PDF。</p>
-<div id="photoRows"></div><button id="addPhoto" type="button" class="secondary small">＋ 增加照片</button><div id="preview" aria-label="照片預覽"></div>
-<label for="memo">其他備註（選填）</label><textarea name="memo" id="memo" maxlength="300" rows="3" placeholder="例：方便聯絡的時段（請勿填入無關的敏感資料）"></textarea>
-<label class="check"><input id="agree" type="checkbox" required><span>我已閱讀<a href="privacy.html" target="_blank" rel="noopener noreferrer">個資與處方使用說明</a>，同意藥局為聯絡及慢箋處理目的使用我主動提供的資料。</span></label>
-<div id="captcha" class="turnstile-wrap"></div><button id="submitBtn" type="submit" disabled>傳送處方照片</button><p id="status" role="status" aria-live="polite"></p>
-</form></section></main><footer>處方影像包含個人醫療資訊，請勿使用公共電腦上傳。</footer><script type="module" src="upload.js"></script></body></html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="referrer" content="strict-origin-when-cross-origin">
+<title>維元社區藥局｜線上處方照片傳送</title>
+<style>
+:root{font-family:system-ui,-apple-system,"Noto Sans TC",sans-serif;color:#203f36;background:#f2f7f4}*{box-sizing:border-box}body{margin:0}header{background:#214e42;color:#fff;padding:20px 16px}header>div,main{max-width:720px;margin:auto}h1{font-size:1.45rem;margin:0}header p{margin:3px 0 0}main{padding:22px 15px 60px}.card{background:white;padding:26px;border:1px solid #d7e6df;border-radius:17px;box-shadow:0 8px 30px #214e420a}label{display:block;font-weight:650;margin:18px 0 7px}input,textarea{font:inherit;width:100%;border:1px solid #accbbd;border-radius:9px;padding:12px;background:#fff}input[type=file]{padding:10px}textarea{min-height:92px}.small{font-size:.88rem;color:#546c64;line-height:1.8}.notice{background:#edf4ef;padding:16px;border-radius:10px;line-height:1.85;margin-top:20px}.warn{background:#fff3e6;padding:14px;border-radius:10px;color:#7b4b1e;line-height:1.8}.consent{display:flex;align-items:flex-start;gap:10px;margin:20px 0}.consent input{width:20px;height:20px;flex:none;margin-top:2px}button{background:#126c5c;color:white;border:0;border-radius:9px;padding:15px 18px;font:inherit;font-weight:750;cursor:pointer;width:100%;margin-top:16px}button:disabled{opacity:.55;cursor:wait}#message{margin-top:14px;white-space:pre-wrap;line-height:1.7}#message.error{color:#ab3929}footer{text-align:center;padding:28px 14px;color:#668077}
+</style>
+<script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
+</head>
+<body>
+<header><div><h1>維元社區藥局</h1><p>線上處方照片傳送</p></div></header>
+<main><div class="card">
+<div class="warn"><strong>請先以測試資料確認系統。</strong> 此頁尚未完成正式上線驗收，暫勿提交真實處方或病患資料。</div>
+<p>流程：拍攝處方 → 填寫聯絡資料 → 通過驗證 → 送出 → 取得收件編號。傳送不代表藥師已審核處方或完成配藥。</p>
+<form id="receiptForm" method="POST" action="https://script.google.com/macros/s/AKfycbziAsOEyBIibK5dwFAU3bmQbdrb75415nehAuwzy1QZE02LyT6bPbtkt2k322TNlWQo/exec" accept-charset="UTF-8" enctype="application/x-www-form-urlencoded">
+<label for="name">姓名（必填）</label><input id="name" autocomplete="name" maxlength="40" required>
+<label for="phone">聯絡電話（必填）</label><input id="phone" autocomplete="tel" inputmode="tel" required>
+<label for="memo">備註（選填）</label><textarea id="memo" maxlength="300" placeholder="例如方便聯絡時段"></textarea>
+<label for="images">處方照片（1～3 張，必填）</label><input id="images" type="file" accept="image/jpeg,image/png,image/heic,image/heif,image/*" multiple required>
+<p class="small">上傳前會在本機壓縮成 JPEG，每張不超過 950 KB，最多 3 張；請確認文字清楚。照片會傳送至藥局的私人 Google Drive。</p>
+<div class="notice"><strong>個人資料蒐集告知</strong><p>蒐集者：維元社區藥局。目的：辨識處方、聯絡及安排領藥。資料包含姓名、電話、備註及處方照片，僅授權藥局人員處理，儲存於私人 Google Drive 與 Google 試算表。<strong>正式啟用前，藥局仍須補足資料保存期間、刪除流程、當事人權利及聯絡窗口。</strong></p></div>
+<label class="consent"><input type="checkbox" id="consent" required><span>我已閱讀個資告知並同意為聯絡及領藥安排目的提交資料。</span></label>
+<div class="cf-turnstile" data-sitekey="0x4AAAAAAF_FielcPL4kOJrM" data-callback="onVerified" data-expired-callback="onExpired" data-error-callback="onTurnstileError"></div>
+<input type="hidden" name="payload" id="payload">
+<p class="small">按送出後會離開此頁，前往 Google Apps Script 的收件結果頁；請保留收件編號。</p>
+<button type="submit" id="send">傳送處方至維元藥局</button>
+<p id="message" role="status" aria-live="polite"></p>
+</form>
+</div></main>
+<footer>維元社區藥局｜新豐街門市｜02-2460-1388</footer>
+<script>
+'use strict';
+let verifiedToken = '';
+window.onVerified = token => { verifiedToken = token; setMessage('安全驗證已完成。'); };
+window.onExpired = () => { verifiedToken = ''; setMessage('驗證已過期，請重新驗證。', true); };
+window.onTurnstileError = code => { verifiedToken = ''; setMessage('安全驗證無法完成，Cloudflare 錯誤代碼：'+String(code || '未知')+'。請勿上傳真實處方。',true); };
+function setMessage(msg,error=false){const el=document.getElementById('message');el.textContent=msg;el.className=error?'error':'';}
+async function toJpeg(file){
+  let img=await createImageBitmap(file).catch(()=>null);
+  if(!img){
+    const objectUrl=URL.createObjectURL(file);
+    try{img=await new Promise((resolve,reject)=>{const x=new Image();x.onload=()=>resolve(x);x.onerror=()=>reject(Error('無法讀取照片'));x.src=objectUrl;});}
+    finally{URL.revokeObjectURL(objectUrl);}
+  }
+  if(!img)throw Error('無法讀取「'+file.name+'」，請改用 JPEG 或 PNG 照片。');
+  const maxSide=1700;let w=img.width,h=img.height;const scale=Math.min(1,maxSide/Math.max(w,h));w=Math.max(1,Math.round(w*scale));h=Math.max(1,Math.round(h*scale));
+  const canvas=document.createElement('canvas');canvas.width=w;canvas.height=h;
+  const ctx=canvas.getContext('2d');ctx.fillStyle='white';ctx.fillRect(0,0,w,h);ctx.drawImage(img,0,0,w,h);if(img.close)img.close();
+  for(let quality=.85;quality>=.35;quality-=.1){
+    const blob=await new Promise(res=>canvas.toBlob(res,'image/jpeg',quality));
+    if(blob&&blob.size<=950000){const data=await new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>res(r.result);r.onerror=()=>rej(Error('讀取照片失敗'));r.readAsDataURL(blob);});return {mime:'image/jpeg',base64:String(data).split(',')[1]};}
+  }
+  throw Error('照片壓縮後仍超過 950 KB，請調整照片後重試。');
+}
+document.getElementById('receiptForm').addEventListener('submit', async function(ev){
+  ev.preventDefault();
+  const button=document.getElementById('send');if(button.disabled)return;
+  if(!this.reportValidity())return;
+  if(!verifiedToken){setMessage('請先完成 Cloudflare 安全驗證。',true);return;}
+  const files=[...document.getElementById('images').files];
+  if(files.length<1||files.length>3){setMessage('請選擇 1～3 張照片。',true);return;}
+  button.disabled=true;setMessage('正在壓縮照片，完成後將前往收件結果頁……');
+  try{
+    const images=[];for(const file of files)images.push(await toJpeg(file));
+    const data={name:document.getElementById('name').value,phone:document.getElementById('phone').value,memo:document.getElementById('memo').value,consent:document.getElementById('consent').checked?'accepted':'',images,turnstileToken:verifiedToken};
+    document.getElementById('payload').value=JSON.stringify(data);
+    HTMLFormElement.prototype.submit.call(this);
+  }catch(err){setMessage(err.message||'照片處理失敗。',true);button.disabled=false;}
+});
+</script>
+</body>
+</html>
